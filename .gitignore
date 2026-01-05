@@ -1,0 +1,13 @@
+# office files
+*.xlsx
+*.docx
+*.pptx
+
+# zips
+*.zip
+
+# other documents
+*.pdf
+
+# python
+__pycache__

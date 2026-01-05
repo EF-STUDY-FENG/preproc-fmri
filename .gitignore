@@ -8,6 +8,7 @@
 
 # other documents
 *.pdf
+license.txt
 
 # python
 __pycache__

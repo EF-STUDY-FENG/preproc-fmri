@@ -25,7 +25,7 @@ BIDS_ROOT="$PROJECT_ROOT/bids"
 LOGDIR="$PROJECT_ROOT/logs/heudiconv"
 
 # ---- heuristic ----
-HEURISTIC="$PROJECT_ROOT/code/heuristic/heuristic.py"
+HEURISTIC="$PROJECT_ROOT/code/heudiconv/heuristic/heuristic.py"
 
 # ---- singularity/apptainer ----
 SIF="$HOME/containers/heudiconv-1.3.4.sif"   # 改成你的容器路径

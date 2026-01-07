@@ -2,7 +2,9 @@
 # 注意：该文件可被交互式 shell source；不要在这里 set -euo pipefail / set -u
 
 # ---- project root ----
-PROJECT_ROOT="$HOME/2025EFsfMRI"
+# Auto-detect from repo layout; override via env PROJECT_ROOT if needed
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd -- "$SCRIPT_DIR/../.." && pwd -P)}"
 
 # ---- raw input root ----
 SRC_ROOT="$PROJECT_ROOT/Data/fmriData"

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # config only; do NOT set -euo pipefail here
 
-PROJECT_ROOT="$HOME/2025EFsfMRI"
+# Auto-detect project root from repo layout; allow override via env PROJECT_ROOT
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd -- "$SCRIPT_DIR/../.." && pwd -P)}"
 
 # ---- inputs ----
 BIDS_ROOT="$PROJECT_ROOT/bids"

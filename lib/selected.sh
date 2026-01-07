@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Helpers for running a selected subset of jobs by building a command file.
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/common.sh"
 
 selected_list_to_cmd_file() {

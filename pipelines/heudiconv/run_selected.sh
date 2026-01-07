@@ -3,15 +3,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 source "${SCRIPT_DIR}/../../lib/bootstrap.sh"
 bootstrap "heudiconv" "$SCRIPT_DIR"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 source "${LIB_ROOT}/common.sh"
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 source "${LIB_ROOT}/queue.sh"
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 source "${LIB_ROOT}/selected.sh"
 
 # Usage: bash run_selected.sh [FORCE] <sub ses> [<sub ses> ...]

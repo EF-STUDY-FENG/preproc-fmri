@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Queue processing utilities for parallel job execution.
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/common.sh"
 
 # Run with GNU parallel
@@ -23,10 +23,6 @@ _run_with_bg_pool() {
   ensure_dir "$(dirname -- "$joblog")"
   : >"$joblog"
 
-  local n=0
-  local -a pids=()
-
-  local active_jobs
   active_jobs() { jobs -rp | wc -l | tr -d ' '; }
 
   while IFS=$'\t' read -r cmd || [[ -n "$cmd" ]]; do
@@ -40,7 +36,6 @@ _run_with_bg_pool() {
     # Log and execute
     printf '%s\t%s\n' "$(date -Iseconds)" "$cmd" >>"$joblog"
     bash -c "$cmd" &
-    pids+=("$!")
   done <"$cmd_file"
 
   # Wait for all remaining jobs

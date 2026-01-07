@@ -3,15 +3,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 source "${SCRIPT_DIR}/../../lib/bootstrap.sh"
 bootstrap "heudiconv" "$SCRIPT_DIR"
 
-# shellcheck disable=SC1091
+# shellcheck disable=SC1090,SC1091
 source "$LIB_ROOT/common.sh"
-# shellcheck disable=SC1091
+# shellcheck disable=SC1090,SC1091
 source "$LIB_ROOT/status.sh"
-# shellcheck disable=SC1091
+# shellcheck disable=SC1090,SC1091
 source "$LIB_ROOT/container.sh"
 
 SUB="$1"   # e.g., 001
@@ -43,7 +43,7 @@ if ! acquire_lock "$JOB_ID"; then
   exit 0
 fi
 
-trap "release_lock '$JOB_ID'" EXIT
+trap 'release_lock "$JOB_ID"' EXIT
 
 # Pre-run status
 log "START $JOB_ID (force=$FORCE)" | tee -a "$LOGFILE"

@@ -2,7 +2,7 @@
 # Bootstrapping (project root detection + .env loading).
 # Source this file, then call: bootstrap "<pipeline_name>" "<caller_script_dir>"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 BOOTSTRAP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "${BOOTSTRAP_DIR}/common.sh"
 

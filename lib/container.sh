@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Container execution wrapper for Singularity/Apptainer.
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/common.sh"
 
 # Detect container runtime

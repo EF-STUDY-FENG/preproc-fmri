@@ -2,7 +2,7 @@
 # Status markers for idempotent pipeline execution.
 # Manages DONE/FAILED/RUNNING/LOCK states.
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/common.sh"
 
 # Check if state directory variables are set

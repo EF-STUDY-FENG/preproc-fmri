@@ -3,16 +3,16 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091
 source "${SCRIPT_DIR}/../../lib/bootstrap.sh"
 bootstrap "fmriprep" "$SCRIPT_DIR"
 
 # Load shared libraries
-# shellcheck disable=SC1091
+# shellcheck disable=SC1090,SC1091
 source "$LIB_ROOT/common.sh"
-# shellcheck disable=SC1091
+# shellcheck disable=SC1090,SC1091
 source "$LIB_ROOT/status.sh"
-# shellcheck disable=SC1091
+# shellcheck disable=SC1090,SC1091
 source "$LIB_ROOT/container.sh"
 
 LABEL="$1"                 # e.g., 001 (without sub-)
@@ -45,7 +45,7 @@ if ! acquire_lock "$SUB"; then
   exit 0
 fi
 
-trap "release_lock '$SUB'" EXIT
+trap 'release_lock "$SUB"' EXIT
 
 # Pre-run status
 log "START $SUB (force=$FORCE)" | tee -a "$LOGFILE"
@@ -88,7 +88,7 @@ run_container "$FMRIPREP_SIF" \
     --nthreads "$NTHREADS" \
     --omp-nthreads "$OMP_NTHREADS" \
     --mem_mb "$MEM_MB" \
-    --output-spaces $OUTPUT_SPACES \
+    --output-spaces "$OUTPUT_SPACES" \
     "${CIFTI_OPT[@]}" \
     "${SKIP_OPT[@]}" \
     --stop-on-first-crash \

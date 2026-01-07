@@ -2,11 +2,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/00_config.sh"
 
-mkdir -p "$(dirname "$PARTICIPANTS_TSV")"
+# shellcheck disable=SC1090
+source "${SCRIPT_DIR}/../../lib/bootstrap.sh"
+bootstrap "fmriprep" "$SCRIPT_DIR"
 
-# 输出两列：sub-XXX<TAB>XXX
+# shellcheck disable=SC1091
+source "$LIB_ROOT/common.sh"
+
+ensure_dir "$(dirname "$PARTICIPANTS_TSV")"
+
+# Output two columns: sub-XXX<TAB>XXX
 find "$BIDS_ROOT" -maxdepth 1 -type d -name 'sub-*' -printf '%f\n' \
 | sort \
 | while IFS= read -r s; do
@@ -15,9 +21,8 @@ find "$BIDS_ROOT" -maxdepth 1 -type d -name 'sub-*' -printf '%f\n' \
 > "$PARTICIPANTS_TSV"
 
 if [ ! -s "$PARTICIPANTS_TSV" ]; then
-  echo "ERROR: no participants found under $BIDS_ROOT" >&2
-  exit 1
+  die "no participants found under $BIDS_ROOT"
 fi
 
-echo "OK: participants -> $PARTICIPANTS_TSV"
+log "OK: manifest -> $PARTICIPANTS_TSV"
 head -n 10 "$PARTICIPANTS_TSV"

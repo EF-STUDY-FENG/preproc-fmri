@@ -2,25 +2,37 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/00_config.sh"
 
-mkdir -p "$DERIV_ROOT" "$FS_SUBJECTS_DIR" "$WORK_ROOT" "$LOGDIR" "$BIDS_DB_DIR"
+# shellcheck disable=SC1090
+source "${SCRIPT_DIR}/../../lib/bootstrap.sh"
+bootstrap "fmriprep" "$SCRIPT_DIR"
+
+# shellcheck disable=SC1091
+source "$LIB_ROOT/common.sh"
+# shellcheck disable=SC1091
+source "$LIB_ROOT/container.sh"
+
+ensure_dir "$DERIV_ROOT"
+ensure_dir "$FS_SUBJECTS_DIR"
+ensure_dir "$WORK_ROOT"
+ensure_dir "$LOGDIR"
+ensure_dir "$BIDS_DB_DIR"
 
 if [ "${RESET_BIDS_DB:-1}" = "1" ]; then
   rm -rf "$BIDS_DB_DIR"
   mkdir -p "$BIDS_DB_DIR"
 fi
 
-# 注意：用 exec 调用容器内 python；不要用 run（run 通常是 fmriprep 入口）
-"$SING_BIN" exec \
-  -B "$BIDS_ROOT":"$BIDS_ROOT" \
-  -B "$BIDS_DB_DIR":"$BIDS_DB_DIR" \
-  "$FMRIPREP_SIF" \
+# Note: use exec to run Python inside the container; do not use "run" (typically the fmriprep entrypoint)
+exec_container "$FMRIPREP_SIF" \
+  "$BIDS_ROOT":"$BIDS_ROOT" \
+  "$BIDS_DB_DIR":"$BIDS_DB_DIR" \
+  -- \
   python - <<PY
 import os
 from bids import BIDSLayout
 
-# PyBIDS 新版本要求：显式构造 BIDSLayoutIndexer，而不是把 index_metadata 作为 kwargs 传给 BIDSLayout
+# Newer PyBIDS requires constructing BIDSLayoutIndexer explicitly (instead of passing index_metadata via kwargs)
 try:
     from bids.layout import BIDSLayoutIndexer
 except Exception:
@@ -47,4 +59,4 @@ print("N_subjects:", len(subs))
 print("First10:", subs[:10])
 PY
 
-echo "OK: BIDS DB ready -> $BIDS_DB_DIR"
+log "OK: BIDS DB ready -> $BIDS_DB_DIR"

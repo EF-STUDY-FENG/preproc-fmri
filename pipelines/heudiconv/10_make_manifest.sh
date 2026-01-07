@@ -2,33 +2,38 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/00_config.sh"
 
-mkdir -p "$STAGE_ROOT"
+# shellcheck disable=SC1090
+source "${SCRIPT_DIR}/../../lib/bootstrap.sh"
+bootstrap "heudiconv" "$SCRIPT_DIR"
 
-# 可选：每次重建 staging，避免残留旧的 sub/ses
+# shellcheck disable=SC1091
+source "$LIB_ROOT/common.sh"
+
+ensure_dir "$STAGE_ROOT"
+
+# Optional: rebuild staging each time to avoid leftover sub/ses
 if [ "${CLEAN_STAGE_DICOM:-1}" = "1" ]; then
   rm -rf "$STAGE_DICOM"
 fi
 mkdir -p "$STAGE_DICOM"
 
-# 重写清单文件
+# Overwrite manifest outputs
 : > "$MANIFEST"
 : > "$DUPLICATES"
 
 # ---------- load overrides (optional) ----------
 declare -A OVERRIDE_PATH
 if [ -n "${OVERRIDES_TSV:-}" ] && [ -f "$OVERRIDES_TSV" ]; then
-  while IFS=$'\t' read -r sub ses path; do
+  while IFS=$'\t' read -r sub ses path; do  # sub ses path
     [[ -z "${sub:-}" || -z "${ses:-}" || -z "${path:-}" ]] && continue
     [[ "$sub" =~ ^# ]] && continue
-    # 统一 sub 到 3 位
+    # Normalize subject label to 3 digits
     sub3="$(printf "%03d" "$((10#$sub))")"
     key="${sub3}|${ses}"
     realp="$(readlink -f "$path" 2>/dev/null || true)"
     if [ -z "$realp" ] || [ ! -d "$realp" ]; then
-      echo "ERROR: override path not found: $sub3 $ses $path" >&2
-      exit 2
+      die "override path not found: $sub3 $ses $path"
     fi
     OVERRIDE_PATH["$key"]="$realp"
   done < "$OVERRIDES_TSV"
@@ -38,17 +43,17 @@ fi
 declare -A BEST_PATH BEST_MTIME
 declare -A SEEN_OVERRIDE_MATCH
 
-# 扫描原始目录（你的命名：TJNU_FJJ_EF_SUB016_..._REST/TASK/G105）
+# Scan source directories (naming like: TJNU_FJJ_EF_SUB016_..._REST/TASK/G105)
 for d in "$SRC_ROOT"/TJNU_FJJ_EF_SUB*; do
   [ -d "$d" ] || continue
   base="$(basename "$d")"
 
-  # 提取 SUB###
+  # Extract SUB###
   sub_raw="$(echo "$base" | sed -n 's/.*_SUB\([0-9]\+\)_.*/\1/p')"
   [ -n "$sub_raw" ] || { echo "SKIP(no SUB): $base" >&2; continue; }
   sub3="$(printf "%03d" "$((10#$sub_raw))")"
 
-  # 提取末尾后缀并映射 session：G105 -> TASK
+  # Map suffix to session (e.g., G105 -> TASK)
   suf="${base##*_}"
   case "$suf" in
     REST|rest) ses="REST" ;;
@@ -61,11 +66,11 @@ for d in "$SRC_ROOT"/TJNU_FJJ_EF_SUB*; do
   path="$(readlink -f "$d")"
   mtime="$(stat -c %Y "$path" 2>/dev/null || echo 0)"
 
-  # 若该 key 有 override：只接受 override 指定的那条路径
+  # If override exists for this key: accept only the override path
   if [ -n "${OVERRIDE_PATH[$key]+x}" ]; then
     if [ "$path" = "${OVERRIDE_PATH[$key]}" ]; then
       SEEN_OVERRIDE_MATCH["$key"]=1
-      # 强制设为最佳
+      # Force as best
       if [ -n "${BEST_PATH[$key]+x}" ] && [ "${BEST_PATH[$key]}" != "$path" ]; then
         printf "%s\t%s\tOVERRIDE_REPLACED\t%s\t%s\n" "$sub3" "$ses" "${BEST_PATH[$key]}" "$path" >> "$DUPLICATES"
       fi
@@ -77,7 +82,7 @@ for d in "$SRC_ROOT"/TJNU_FJJ_EF_SUB*; do
     continue
   fi
 
-  # 无 override：按 mtime 选择“最新”的那条
+  # No override: pick the newest path by mtime
   if [ -z "${BEST_PATH[$key]+x}" ]; then
     BEST_PATH["$key"]="$path"
     BEST_MTIME["$key"]="$mtime"
@@ -99,16 +104,15 @@ for d in "$SRC_ROOT"/TJNU_FJJ_EF_SUB*; do
   fi
 done
 
-# 若有 override，但扫描中未遇到指定目录，直接报错（避免 silent wrong）
+# If override is specified but never seen during scan, fail fast (avoid silent mis-selection)
 for k in "${!OVERRIDE_PATH[@]}"; do
   if [ -z "${SEEN_OVERRIDE_MATCH[$k]+x}" ]; then
-    echo "ERROR: override specified but not found during scan: $k -> ${OVERRIDE_PATH[$k]}" >&2
-    exit 3
+    die "override specified but not found during scan: $k -> ${OVERRIDE_PATH[$k]}"
   fi
 done
 
 # ---------- write staging links + manifest ----------
-# 以 key 排序，保证输出稳定
+# Sort by key to keep output stable
 {
   for k in "${!BEST_PATH[@]}"; do
     echo "$k"
@@ -122,17 +126,16 @@ done
   printf "%s\t%s\n" "$sub3" "$ses"
 done > "$MANIFEST"
 
-echo "OK: manifest -> $MANIFEST"
+log "OK: manifest -> $MANIFEST"
 
 if [ -s "$DUPLICATES" ]; then
-  echo "INFO: duplicates/decisions recorded -> $DUPLICATES"
+  log "INFO: duplicates/decisions recorded -> $DUPLICATES"
   if [ "${STOP_ON_DUPLICATES:-0}" = "1" ]; then
-    echo "ERROR: STOP_ON_DUPLICATES=1, stopping due to duplicates." >&2
-    exit 4
+    die "STOP_ON_DUPLICATES=1, stopping due to duplicates."
   fi
 fi
 
-echo "Sample staged entries:"
+log "Sample staged entries:"
 head -n 5 "$MANIFEST" | while IFS=$'\t' read -r s ss; do
-  echo "  sub-$s ses-$ss -> $(readlink -f "$STAGE_DICOM/sub-$s/ses-$ss")"
+  log "  sub-$s ses-$ss -> $(readlink -f "$STAGE_DICOM/sub-$s/ses-$ss")"
 done

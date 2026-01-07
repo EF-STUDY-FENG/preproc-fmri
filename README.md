@@ -23,9 +23,56 @@ Bash-based fMRI preprocessing pipelines (HeuDiConv, fMRIPrep) with shared librar
 
 3. Run queues
    - HeuDiConv:
-     - `bash pipelines/heudiconv/20_run_queue.sh pending|failed|all [FORCE]`
+     ```bash
+     bash pipelines/heudiconv/20_run_queue.sh [mode] [FORCE]
+     # defaults: mode=$QUEUE_MODE_DEFAULT, FORCE=0
+     ```
+
    - fMRIPrep:
-     - `bash pipelines/fmriprep/20_run_queue.sh pending|failed|all [FORCE]`
+     ```bash
+     bash pipelines/fmriprep/20_run_queue.sh [mode] [FORCE]
+     # defaults: mode=$QUEUE_MODE_DEFAULT, FORCE=0
+     ```
+
+Notes:
+
+- `mode`: `pending` | `failed` | `all`
+- `QUEUE_MODE_DEFAULT`: defined in `config/project.env` (default: `pending`)
+- `FORCE`: `1` = force rerun (even if marked `DONE`), `0` = normal idempotent behavior
+
+## Recommended: run via tmux (GNU parallel)
+
+These pipelines can use GNU `parallel` for concurrent jobs. To avoid disconnects (SSH/terminal closing) interrupting a long run, we recommend running queues inside `tmux`.
+
+Example workflow:
+
+1. Start a session
+   - `tmux new -s preproc`
+
+2. Run a queue inside tmux
+   - `bash pipelines/fmriprep/20_run_queue.sh`
+
+3. Detach / re-attach
+   - Detach: press `Ctrl-b`, then `d`
+   - Re-attach: `tmux attach -t preproc`
+
+### Adjust max jobs quickly (MAX_JOBS)
+
+The maximum concurrent jobs is controlled by `MAX_JOBS` (defined in `config/heudiconv.env` and `config/fmriprep.env`).
+
+By default, `MAX_JOBS` inherits from `N_JOBS_DEFAULT` in `config/project.env` (unless you override `MAX_JOBS` explicitly).
+
+For quick changes without editing config, override it per run:
+
+```bash
+MAX_JOBS=8 \
+  bash pipelines/fmriprep/20_run_queue.sh
+
+MAX_JOBS=2 \
+  bash pipelines/heudiconv/20_run_queue.sh
+```
+
+Note: `MAX_JOBS` is read when the queue starts. If you want to change it, stop the current queue and re-run with a new value.
 
 ## Conventions
 

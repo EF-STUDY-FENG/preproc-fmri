@@ -19,7 +19,7 @@ ensure_dir "$BIDS_ROOT"
 init_state_dirs
 
 # Queue mode: pending (default) / failed / all
-MODE="${1:-pending}"
+MODE="${1:-$QUEUE_MODE_DEFAULT}"
 FORCE="${2:-0}"
 
 case "$MODE" in

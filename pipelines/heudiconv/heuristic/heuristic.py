@@ -12,52 +12,53 @@ def create_key(template, outtype=("nii.gz",), annotation_classes=None):
 
 
 # ---------- IntendedFor auto-population ----------
-# ModalityAcquisitionLabel: infer IntendedFor matching (func/dwi, etc.) from the fmap filename `_acq-` tag.
-# criterion=Closest: if a session has multiple fmap groups, assign by closest acquisition time.
+# Use fmap filename `_acq-` tag for matching (bold/dwi, etc.); if multiple fmap groups exist, assign by closest time.
 POPULATE_INTENDED_FOR_OPTS = {
     "matching_parameters": ["ModalityAcquisitionLabel"],
     "criterion": "Closest",
 }
 
-# ---------- BIDS keys (robust for optional sessions) ----------
+# ---------- BIDS keys ----------
 # TASK session func: task-efbattery
 bold_task = create_key(
     "{bids_subject_session_dir}/func/"
     "{bids_subject_session_prefix}_task-efbattery_run-{item:02d}_bold"
 )
 
-# REST session func: task-rest (BIDS requires a task entity even for resting-state)
+# REST session func: task-rest
 bold_rest = create_key(
     "{bids_subject_session_dir}/func/"
     "{bids_subject_session_prefix}_task-rest_run-{item:02d}_bold"
 )
 
-# anat: keep nd only (exclude gdc)
+# anat: keep ND only (exclude derived DIS*)
 t1w = create_key(
     "{bids_subject_session_dir}/anat/"
     "{bids_subject_session_prefix}_acq-mprage_T1w"
 )
 
-# fmap for BOLD (GRE field mapping) — use `_acq-bold` so IntendedFor matches func
+# fmap for BOLD (GRE field mapping)
+# IMPORTANT: do NOT include {subindex}; magnitude series contains 2 echoes (2x slices), dcm2niix splits into 2 NIfTIs.
+# Let heudiconv auto-number to magnitude1/magnitude2.
 fmap_mag_bold = create_key(
     "{bids_subject_session_dir}/fmap/"
-    "{bids_subject_session_prefix}_acq-bold_run-{item:02d}_magnitude{subindex}"
+    "{bids_subject_session_prefix}_acq-bold_run-{item:02d}_magnitude"
 )
 fmap_phasediff_bold = create_key(
     "{bids_subject_session_dir}/fmap/"
     "{bids_subject_session_prefix}_acq-bold_run-{item:02d}_phasediff"
 )
 
-# dwi: keep only the main DWI (non-DERIVED); include run for future extension
+# dwi: keep only main DWI (non-derived)
 dwi_hardi = create_key(
     "{bids_subject_session_dir}/dwi/"
     "{bids_subject_session_prefix}_acq-hardi_dir-PA_run-{item:02d}_dwi"
 )
 
-# fmap for DWI — use `_acq-dwi` so IntendedFor matches dwi
+# fmap for DWI (ABI1_fieldmap_hardi)
 fmap_mag_dwi = create_key(
     "{bids_subject_session_dir}/fmap/"
-    "{bids_subject_session_prefix}_acq-dwi_run-{item:02d}_magnitude{subindex}"
+    "{bids_subject_session_prefix}_acq-dwi_run-{item:02d}_magnitude"
 )
 fmap_phasediff_dwi = create_key(
     "{bids_subject_session_dir}/fmap/"
@@ -86,10 +87,10 @@ def infotodict(seqinfos):
     info = defaultdict(list)
 
     # func
-    task_runs = {}         # run_number -> series_id
-    rest_bolds = []        # series_ids (usually single)
+    task_runs = {}   # run_number -> series_id
+    rest_bolds = []  # series_ids (usually single)
 
-    # fmap for bold (TASK has 2 groups; REST has 1 group)
+    # fmap for bold
     fmap_mag_bold_list = []
     fmap_phase_bold_list = []
 
@@ -119,19 +120,19 @@ def infotodict(seqinfos):
                 if m:
                     task_runs[int(m.group(1))] = s.series_id
                 else:
-                    # fallback: acquisition order as pseudo-run
                     task_runs[_series_num(s.series_id)] = s.series_id
             continue
 
         # ---------- fmap: GRE field mapping for BOLD ----------
         if "gre_field_mapping" in prot or "gre_field_mapping" in desc:
+            # dicominfo shows: Magnitude series_files ~ 2 * PhaseDiff series_files -> multi-echo magnitude in ONE series
             if "p" in itype:
                 fmap_phase_bold_list.append(s.series_id)
             elif "m" in itype:
                 fmap_mag_bold_list.append(s.series_id)
             continue
 
-        # ---------- fmap: hardi fieldmap (for DWI) ----------
+        # ---------- fmap: fieldmap_hardi for DWI ----------
         if "fieldmap_hardi" in prot or "fieldmap_hardi" in desc:
             if "p" in itype:
                 fmap_phase_dwi_list.append(s.series_id)
@@ -152,13 +153,20 @@ def infotodict(seqinfos):
     for sid in sorted(rest_bolds, key=_series_num):
         info[bold_rest].append(sid)
 
-    # --- write fmap for bold (run order by series number) ---
-    info[fmap_mag_bold].extend(sorted(fmap_mag_bold_list, key=_series_num))
-    info[fmap_phasediff_bold].extend(sorted(fmap_phase_bold_list, key=_series_num))
+    # --- write fmap for bold (PAIR mag <-> phasediff to keep run indices aligned) ---
+    mags = sorted(fmap_mag_bold_list, key=_series_num)
+    phs = sorted(fmap_phase_bold_list, key=_series_num)
+    for mag_sid, ph_sid in zip(mags, phs):
+        info[fmap_mag_bold].append(mag_sid)
+        info[fmap_phasediff_bold].append(ph_sid)
 
     # --- write dwi + its fmap ---
     info[dwi_hardi].extend(sorted(dwi_list, key=_series_num))
-    info[fmap_mag_dwi].extend(sorted(fmap_mag_dwi_list, key=_series_num))
-    info[fmap_phasediff_dwi].extend(sorted(fmap_phase_dwi_list, key=_series_num))
+
+    mags = sorted(fmap_mag_dwi_list, key=_series_num)
+    phs = sorted(fmap_phase_dwi_list, key=_series_num)
+    for mag_sid, ph_sid in zip(mags, phs):
+        info[fmap_mag_dwi].append(mag_sid)
+        info[fmap_phasediff_dwi].append(ph_sid)
 
     return info

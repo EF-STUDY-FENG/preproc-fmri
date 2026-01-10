@@ -18,8 +18,8 @@ SUB="${1:?sub required (e.g., 001)}"
 SES="${2:?ses required (e.g., TASK/REST)}"
 FORCE="${3:-0}"
 
-job_id="sub-${SUB}_ses-${SES}"
-logfile="$LOGDIR/${job_id}.log"
+JOB_ID="sub-${SUB}_ses-${SES}"
+LOGFILE="$LOGDIR/${JOB_ID}.log"
 
 ensure_dir "$BIDS_ROOT"
 ensure_dir "$LOGDIR"
@@ -28,20 +28,16 @@ ensure_dir "$LOGDIR"
 [[ -d "$STAGE_DICOM/sub-${SUB}/ses-${SES}" ]] || die "Staged DICOM missing: $STAGE_DICOM/sub-${SUB}/ses-${SES} (run: bash $SCRIPT_DIR/manifest.sh)"
 [[ -s "$MANIFEST" ]] || log_warn "Manifest not found at $MANIFEST (you may want to run: bash $SCRIPT_DIR/manifest.sh)"
 
-# HeuDiConv command
-cmd=(
-  run_container "$SIF"
-  "$STAGE_DICOM:$STAGE_DICOM"
-  "$BIDS_ROOT:$BIDS_ROOT"
-  "$HEURISTIC:$HEURISTIC"
-  --
-  -d "$DICOM_TEMPLATE"
-  -s "$SUB"
-  -ss "$SES"
-  -f "$HEURISTIC"
-  -o "$BIDS_ROOT"
-  -c dcm2niix
-  -b
-)
-
-job_run "$job_id" "$FORCE" "$logfile" -- "${cmd[@]}"
+job_run "$JOB_ID" "$FORCE" "$LOGFILE" -- \
+  run_container "$SIF" \
+    "$STAGE_DICOM:$STAGE_DICOM" \
+    "$BIDS_ROOT:$BIDS_ROOT" \
+    "$HEURISTIC:$HEURISTIC" \
+    -- \
+      -d "$DICOM_TEMPLATE" \
+      -s "$SUB" \
+      -ss "$SES" \
+      -f "$HEURISTIC" \
+      -o "$BIDS_ROOT" \
+      -c dcm2niix \
+      -b

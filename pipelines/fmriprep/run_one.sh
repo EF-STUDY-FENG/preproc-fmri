@@ -35,13 +35,13 @@ SKIP_OPT=()
 CIFTI_OPT=()
 [[ -n "${CIFTI_OUTPUT:-}" ]] && CIFTI_OPT+=(--cifti-output "$CIFTI_OUTPUT")
 
-fmriprep_exec() {
-  # Workdir policy
-  if [[ "${WIPE_WORKDIR_ON_START:-0}" == "1" ]]; then
-    rm -rf "$WORK_SUB"
-  fi
-  mkdir -p "$WORK_SUB"
+# Workdir policy (runs before container so we control workdir lifecycle explicitly)
+if [[ "${WIPE_WORKDIR_ON_START:-0}" == "1" ]]; then
+  rm -rf "$WORK_SUB"
+fi
+mkdir -p "$WORK_SUB"
 
+job_run "$SUB" "$FORCE" "$LOGFILE" -- \
   run_container "$FMRIPREP_SIF" \
     "$BIDS_ROOT:$BIDS_ROOT" \
     "$DERIV_ROOT:$DERIV_ROOT" \
@@ -64,9 +64,6 @@ fmriprep_exec() {
       "${SKIP_OPT[@]}" \
       --stop-on-first-crash \
       --notrack
-}
-
-job_run "$SUB" "$FORCE" "$LOGFILE" -- fmriprep_exec
 rc=$?
 
 if [[ "$rc" -eq 0 && "${CLEAN_WORK_ON_SUCCESS:-1}" == "1" ]]; then

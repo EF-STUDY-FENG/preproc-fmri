@@ -20,13 +20,12 @@ _default_logfile() {
 # Pipeline scripts typically set LOGFILE to the per-job log file.
 : "${LOGFILE:=$(_default_logfile)}"
 
-# Print to stderr and append to LOGFILE (best-effort).
+# Append to LOGFILE (best-effort).
 _log_line() {
   local level="${1:?level required}"; shift
   local msg="$*"
   local line
   line="[$(_ts)] ${level}: ${msg}"
-  printf '%s\n' "$line" >&2
   printf '%s\n' "$line" >>"$LOGFILE" 2>/dev/null || true
 }
 

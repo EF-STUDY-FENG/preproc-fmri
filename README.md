@@ -1,83 +1,313 @@
 # preproc-fmri
 
-Bash-based fMRI preprocessing pipelines (HeuDiConv, fMRIPrep) with shared libraries for config loading, queue execution, and status tracking.
+A lightweight, Bash-first fMRI preprocessing framework that emphasizes **readability**, **reusability**, and **idempotent execution**.
+The repository currently provides the following pipelines:
 
-## Repo layout
+- **heudiconv**: DICOM → BIDS conversion (via container)
+- **fMRIPrep**: BIDS → preprocessed derivatives (via container)
 
-- `pipelines/`: pipeline entry scripts (currently `heudiconv`, `fmriprep`)
-- `lib/`: shared Bash libraries (`bootstrap`, `status`, `queue`, `container`, `selected`, `common`)
-- `config/`: configuration files (`project.env` + per-pipeline `*.env`)
-- `stage/`, `bids/`, `derivatives/`, `work/`, `logs/`: runtime data directories (created as needed)
+## Key design
+
+1. **Project bootstrap is uniform**
+   All pipeline scripts begin with `project_load <pipeline>` which:
+   - locates `PROJECT_ROOT` (by finding `config/project.env`),
+   - sources `config/project.env` and `config/<pipeline>.env`,
+   - defines standard directories: `BIDS_ROOT`, `DERIV_ROOT`, `WORK_ROOT`, `LOG_ROOT`, etc.
+
+2. **Idempotent jobs with explicit state markers**
+   Each run is tracked via marker files under:
+
+   - `logs/<pipeline>/state/done/`
+   - `logs/<pipeline>/state/failed/`
+   - `logs/<pipeline>/state/running/`
+   - `logs/<pipeline>/state/lock/`
+
+   This enables stable *pending/failed/all* queues and safe re-runs.
+
+3. **Queue execution is backend-agnostic**
+   - If **GNU parallel** is available, it will be used.
+   - Otherwise, a minimal background-worker pool is used.
+
+---
+
+## Directory layout
+
+```text
+.
+├─ config/                 # project-wide and pipeline-specific env files
+├─ lib/                    # reusable bash library (project/container/state/queue)
+├─ pipelines/              # entry scripts for each pipeline
+├─ tools/                  # small helper tools (e.g., manifest generation)
+├─ bids/                   # BIDS output (from heudiconv)
+├─ derivatives/            # derivatives outputs (fMRIPrep/xcp_d)
+├─ stage/                  # staging (heudiconv manifest, DICOM symlink tree)
+├─ work/                   # temporary work dirs, participants lists, db, etc.
+└─ logs/                   # pipeline logs + state markers
+```
+
+Generated directories (`logs/`, `work/`, `stage/`, `bids/`, `derivatives/`) are safe to gitignore.
+
+---
+
+## Requirements
+
+### System
+
+- Linux (recommended). macOS is feasible if your container runtime works.
+- `bash` (>= 4 recommended)
+- `python3` (standard library is sufficient for `tools/heudiconv_manifest.py`)
+
+### Container runtime
+
+- Singularity/Apptainer (either is acceptable)
+  - The runtime is auto-detected; you may override via `SING_BIN`.
+
+### Containers
+
+You need `.sif` images for:
+
+- heudiconv (e.g., `heudiconv-1.3.4.sif`)
+- fMRIPrep (e.g., `fmriprep-25.2.3.sif`)
+- xcp_d (optional)
+
+Store them under `CONTAINERS_ROOT` (default: `${HOME}/containers`) or override in config.
+
+### Optional
+
+- **GNU parallel**: recommended for robust job scheduling and richer `--joblog`.
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/EF-STUDY-FENG/preproc-fmri
+cd preproc-fmri
+```
+
+1. Place container images:
+
+    ```bash
+    mkdir -p "${HOME}/containers"
+    # Put *.sif here, or update CONTAINERS_ROOT in config/project.env
+    ```
+
+1. Confirm scripts are executable:
+
+    ```bash
+    chmod +x pipelines/*/*.sh
+    ```
+
+---
+
+## Configuration
+
+All configuration is done through env files:
+
+- `config/project.env` (project-wide defaults)
+- `config/heudiconv.env`
+- `config/fmriprep.env`
+
+You can edit these files directly, or override variables inline:
+
+```bash
+MAX_JOBS=8 MEM_MB=64000 bash pipelines/fmriprep/queue.sh pending 0
+```
+
+### Minimal variables you should verify
+
+#### Project
+
+- `CONTAINERS_ROOT` and `SING_BIN`
+- `BIDS_ROOT`, `DERIV_ROOT`, `WORK_ROOT`, `LOG_ROOT`, `STAGE_ROOT` (optional overrides)
+
+#### HeuDiConv
+
+- `SRC_ROOT`: raw DICOM root
+- `SIF`: heudiconv image path
+- `HEURISTIC`: heuristic path
+- `DICOM_TEMPLATE`: template used by heudiconv
+
+#### fMRIPrep
+
+- `FMRIPREP_SIF`: fMRIPrep image path
+- `FS_LICENSE`: FreeSurfer license file path (required by fMRIPrep)
+- resource knobs: `NTHREADS`, `OMP_NTHREADS`, `MEM_MB`, `MAX_JOBS`
+- `OUTPUT_SPACES`, `CIFTI_OUTPUT`, `SKIP_BIDS_VALIDATION` (as needed)
+
+---
 
 ## Quick start
 
-1. Configure your environment
-   - `config/project.env` (e.g., `CONTAINERS_ROOT`, `N_JOBS_DEFAULT`)
-   - `config/heudiconv.env`, `config/fmriprep.env` (container `.sif` paths, resources)
+### 1. heudiconv
 
-2. Build manifests
-   - HeuDiConv:
-     - `bash pipelines/heudiconv/10_make_manifest.sh`
-   - fMRIPrep:
-     - `bash pipelines/fmriprep/10_make_manifest.sh`
-
-3. Run queues
-   - HeuDiConv:
-     ```bash
-     bash pipelines/heudiconv/20_run_queue.sh [mode] [FORCE]
-     # defaults: mode=$QUEUE_MODE_DEFAULT, FORCE=0
-     ```
-
-   - fMRIPrep:
-     ```bash
-     bash pipelines/fmriprep/20_run_queue.sh [mode] [FORCE]
-     # defaults: mode=$QUEUE_MODE_DEFAULT, FORCE=0
-     ```
-
-Notes:
-
-- `mode`: `pending` | `failed` | `all`
-- `QUEUE_MODE_DEFAULT`: defined in `config/project.env` (default: `pending`)
-- `FORCE`: `1` = force rerun (even if marked `DONE`), `0` = normal idempotent behavior
-
-## Recommended: run via tmux (GNU parallel)
-
-These pipelines can use GNU `parallel` for concurrent jobs. To avoid disconnects (SSH/terminal closing) interrupting a long run, we recommend running queues inside `tmux`.
-
-Example workflow:
-
-1. Start a session
-   - `tmux new -s preproc`
-
-2. Run a queue inside tmux
-   - `bash pipelines/fmriprep/20_run_queue.sh`
-
-3. Detach / re-attach
-   - Detach: press `Ctrl-b`, then `d`
-   - Re-attach: `tmux attach -t preproc`
-
-### Adjust max jobs quickly (MAX_JOBS)
-
-The maximum concurrent jobs is controlled by `MAX_JOBS` (defined in `config/heudiconv.env` and `config/fmriprep.env`).
-
-By default, `MAX_JOBS` inherits from `N_JOBS_DEFAULT` in `config/project.env` (unless you override `MAX_JOBS` explicitly).
-
-For quick changes without editing config, override it per run:
+#### Step A: Build staging + manifest
 
 ```bash
-MAX_JOBS=8 \
-  bash pipelines/fmriprep/20_run_queue.sh
-
-MAX_JOBS=2 \
-  bash pipelines/heudiconv/20_run_queue.sh
+bash pipelines/heudiconv/manifest.sh
 ```
 
-Note: `MAX_JOBS` is read when the queue starts. If you want to change it, stop the current queue and re-run with a new value.
+Artifacts:
 
-## Conventions
+- `stage/dicom/` (symlink tree)
+- `stage/manifest.tsv` (queue source)
+- `stage/duplicates.tsv` (audit list if duplicates exist)
+- `stage/overrides.tsv` (optional manual override file)
 
-- Status markers (`DONE`/`FAILED`/`RUNNING`/`LOCK`) make runs idempotent: completed jobs are skipped; failures can be rerun safely.
-- `pending` excludes failed jobs by default; rerun failures via `failed` or `90_run_failed.sh`.
-- Script naming under `pipelines/<pipeline>/`:
-  - `NN_*.sh` (e.g., `05_...`, `10_...`, `20_...`, `90_...`): ordered pipeline steps
-  - `run_one.sh`, `run_selected.sh`: helper entrypoints for targeted runs
+#### Step B: Run conversion
+
+```bash
+# MODE: pending | failed | all
+# FORCE: 0 (default) or 1 (ignore DONE markers)
+bash pipelines/heudiconv/queue.sh pending 0
+```
+
+#### Run a single job
+
+```bash
+bash pipelines/heudiconv/run_one.sh 0 <SUBJECT> <SESSION>
+# Example:
+bash pipelines/heudiconv/run_one.sh 0 001 REST
+```
+
+#### Re-run selected pairs
+
+```bash
+bash pipelines/heudiconv/run_selected.sh 0 001 REST 001 TASK 002 REST
+```
+
+---
+
+### 2. fMRIPrep
+
+#### Optional: build PyBIDS DB
+
+```bash
+bash pipelines/fmriprep/bids_db.sh
+```
+
+#### Step A: Build participants list
+
+```bash
+bash pipelines/fmriprep/manifest.sh
+# outputs: work/fmriprep_participants.tsv (one label per line)
+```
+
+#### Step B: Run fMRIPrep
+
+```bash
+bash pipelines/fmriprep/queue.sh pending 0
+```
+
+#### Run a single subject
+
+```bash
+bash pipelines/fmriprep/run_one.sh 0 <SUBJECT>
+# Example:
+bash pipelines/fmriprep/run_one.sh 0 001
+```
+
+---
+
+## Execution modes
+
+Queue scripts accept:
+
+- **MODE**
+  - `pending`: run only jobs with no DONE/FAILED markers
+  - `failed`: run only jobs previously marked FAILED
+  - `all`: run everything (still respects locks/running markers)
+
+- **FORCE**
+  - `0`: default; skip DONE jobs
+  - `1`: ignore DONE markers and rerun
+
+Example:
+
+```bash
+bash pipelines/fmriprep/queue.sh failed 1
+```
+
+Parallelism:
+
+- `MAX_JOBS` controls concurrency (per pipeline; defaults to `N_JOBS_DEFAULT` in `config/project.env`).
+- If `parallel` is installed, it will be used automatically.
+
+---
+
+## Outputs and provenance
+
+- Logs:
+  - `logs/<pipeline>/...`
+  - per-job logs are stored under `logs/<pipeline>/jobs/`
+- State markers:
+  - `logs/<pipeline>/state/{done,failed,running,lock}/`
+- BIDS:
+  - `bids/` (default)
+- Derivatives:
+  - `derivatives/` (default)
+- Work:
+  - `work/` (default; may be cleaned upon success depending on pipeline config)
+
+This design allows reproducible re-execution:
+
+- delete selected marker files to re-run a subset, or
+- use `FORCE=1` for programmatic reruns.
+
+---
+
+## Troubleshooting
+
+### Container not found / runtime mismatch
+
+- Check `CONTAINERS_ROOT` and `SIF`/`FMRIPREP_SIF`/`XCPD_SIF`.
+- Check runtime:
+  - auto-detection prefers Apptainer if available;
+  - you may override by setting `SING_BIN=apptainer` or `SING_BIN=singularity`.
+
+### heudiconv duplicates / unexpected session mapping
+
+- Inspect `stage/duplicates.tsv`.
+- Use `stage/overrides.tsv` to pin specific DICOM directories.
+
+### fMRIPrep resource errors (OOM / killed)
+
+- Increase `MEM_MB`, reduce `NTHREADS`, or lower `MAX_JOBS`.
+- Verify bind mounts point to fast storage (especially `WORK_ROOT`).
+
+### “Nothing to do”
+
+- You are likely in `pending` mode with DONE/FAILED markers already present.
+- Use `failed` mode or `FORCE=1`.
+
+---
+
+## Contributing
+
+- Prefer minimal abstractions and keep functions at a readable size.
+- Follow “Bash strict mode” (`set -euo pipefail`) in entry scripts.
+- Add pipeline-specific behavior only inside `pipelines/<pipeline>/`.
+
+---
+
+## License
+
+Specify your license here (e.g., MIT, Apache-2.0, or internal).
+
+---
+
+## Acknowledgements
+
+This project builds upon the community tooling ecosystem:
+
+- HeuDiConv
+- fMRIPrep
+- xcp_d
+- BIDS / PyBIDS
+- Singularity/Apptainer
+- GNU parallel *(optional)*
+
+For official documentation and citations, please refer to the upstream projects. For example:
+
+```text
+https://fmriprep.org/

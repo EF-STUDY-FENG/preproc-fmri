@@ -48,7 +48,7 @@ fi
 trap 'release_lock "$SUB"' EXIT
 
 # Pre-run status
-log "START $SUB (force=$FORCE)" | tee -a "$LOGFILE"
+log "START $SUB (force=$FORCE)"
 mark_running "$SUB"
 
 # Workdir policy
@@ -99,16 +99,16 @@ set -e
 
 if [ "$rc" -eq 0 ]; then
   mark_done "$SUB"
-  log "DONE  $SUB" | tee -a "$LOGFILE"
+  log "DONE  $SUB"
 
   # Cleanup workdir on success (free disk space)
   if [ "${CLEAN_WORK_ON_SUCCESS:-1}" = "1" ]; then
     rm -rf "$WORK_SUB"
-    log "CLEAN workdir $WORK_SUB" | tee -a "$LOGFILE"
+    log "CLEAN workdir $WORK_SUB"
   fi
 else
   mark_failed "$SUB"
-  log "FAIL  $SUB (exit=$rc)" | tee -a "$LOGFILE"
+  log "FAIL  $SUB (exit=$rc)"
 fi
 
 exit "$rc"

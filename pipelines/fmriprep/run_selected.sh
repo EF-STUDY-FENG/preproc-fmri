@@ -10,6 +10,8 @@ bootstrap "fmriprep" "$SCRIPT_DIR"
 # shellcheck disable=SC1090,SC1091
 source "${LIB_ROOT}/common.sh"
 # shellcheck disable=SC1090,SC1091
+source "${LIB_ROOT}/status.sh"
+# shellcheck disable=SC1090,SC1091
 source "${LIB_ROOT}/queue.sh"
 # shellcheck disable=SC1090,SC1091
 source "${LIB_ROOT}/selected.sh"
@@ -25,10 +27,20 @@ fi
 
 (( $# >= 1 )) || die "Usage: bash run_selected.sh [FORCE] <sub_label...>"
 
+LABELS=("$@")
+
 RUN_ONE="${SCRIPT_DIR}/run_one.sh"
 chmod +x "$RUN_ONE" >/dev/null 2>&1 || true
 
 cmd_file="${WORK_ROOT:-$PROJECT_ROOT/work}/selected_fmriprep_commands.txt"
 selected_list_to_cmd_file "$RUN_ONE" "$FORCE" "$cmd_file" "$@"
 
+JOBLIST_FILE="${WORK_ROOT:-$PROJECT_ROOT/work}/selected_fmriprep_jobs.txt"
+: >"$JOBLIST_FILE"
+for label in "${LABELS[@]}"; do
+  printf 'sub-%s\n' "$label" >>"$JOBLIST_FILE"
+done
+
 run_queue "$cmd_file" "${MAX_JOBS:-1}" "${LOGDIR}/joblog_selected.tsv"
+
+summarize_failures_from_joblist "${LOGDIR}/joblog_selected.tsv" "$JOBLIST_FILE" || true

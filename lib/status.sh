@@ -107,3 +107,34 @@ should_enqueue() {
       ;;
   esac
 }
+
+# Summarize failures after a queue run.
+# Expects a plain text file with one job_id per line.
+# Prints either an OK message or a FAILED list with pointers to per-job log files.
+# Usage: summarize_failures_from_joblist <joblog_path> <joblist_file>
+summarize_failures_from_joblist() {
+  local joblog_path="${1:?joblog_path required}"
+  local joblist_file="${2:?joblist_file required}"
+
+  [[ -f "$joblist_file" ]] || die "job list file not found: $joblist_file"
+
+  local failed_jobs=()
+  local job_id
+  while IFS= read -r job_id || [[ -n "${job_id:-}" ]]; do
+    [[ -n "${job_id:-}" ]] || continue
+    if [[ -f "$FAILED_DIR/${job_id}.FAILED" ]]; then
+      failed_jobs+=("$job_id")
+    fi
+  done <"$joblist_file"
+
+  if (( ${#failed_jobs[@]} > 0 )); then
+    say "FAILED: ${#failed_jobs[@]} job(s). Joblog -> $joblog_path"
+    for job_id in "${failed_jobs[@]}"; do
+      say "  $job_id -> ${LOGDIR}/${job_id}.log"
+    done
+    return 1
+  fi
+
+  say "OK: all jobs finished. Joblog -> $joblog_path"
+  return 0
+}

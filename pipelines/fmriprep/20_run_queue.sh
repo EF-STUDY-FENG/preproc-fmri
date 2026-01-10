@@ -45,16 +45,16 @@ done < "$PARTICIPANTS_TSV"
 N_TODO="$(wc -l < "$TODO_TSV" | tr -d ' ')"
 N_ALL="$(wc -l < "$PARTICIPANTS_TSV" | tr -d ' ')"
 
-log "Participants total: $N_ALL"
-log "Queue mode: $MODE (force=$FORCE)"
-log "To run: $N_TODO"
-log "TODO list -> $TODO_TSV"
-log "Resources: MAX_JOBS=$MAX_JOBS; NTHREADS=$NTHREADS; OMP_NTHREADS=$OMP_NTHREADS; MEM_MB=$MEM_MB"
-log "CIFTI: CIFTI_OUTPUT=${CIFTI_OUTPUT:-<disabled>}"
-log "Work cleanup: CLEAN_WORK_ON_SUCCESS=$CLEAN_WORK_ON_SUCCESS"
+say "Participants total: $N_ALL"
+say "Queue mode: $MODE (force=$FORCE)"
+say "To run: $N_TODO"
+say "TODO list -> $TODO_TSV"
+say "Resources: MAX_JOBS=$MAX_JOBS; NTHREADS=$NTHREADS; OMP_NTHREADS=$OMP_NTHREADS; MEM_MB=$MEM_MB"
+say "CIFTI: CIFTI_OUTPUT=${CIFTI_OUTPUT:-<disabled>}"
+say "Work cleanup: CLEAN_WORK_ON_SUCCESS=$CLEAN_WORK_ON_SUCCESS"
 
 if [ "$N_TODO" -eq 0 ]; then
-  log "Nothing to do."
+  say "Nothing to do."
   exit 0
 fi
 
@@ -68,4 +68,12 @@ done < "$TODO_TSV"
 
 # Run the queue
 run_queue "$CMD_FILE" "$MAX_JOBS" "$LOGDIR/joblog_${MODE}.tsv"
-log "OK: queue finished. Joblog -> $LOGDIR/joblog_${MODE}.tsv"
+
+JOBLIST_FILE="$PROJECT_ROOT/work/todo_fmriprep_${MODE}_jobs.txt"
+: >"$JOBLIST_FILE"
+while IFS=$'\t' read -r _sub label; do
+  [[ -n "${label:-}" ]] || continue
+  printf 'sub-%s\n' "$label" >>"$JOBLIST_FILE"
+done < "$TODO_TSV"
+
+summarize_failures_from_joblist "$LOGDIR/joblog_${MODE}.tsv" "$JOBLIST_FILE" || true

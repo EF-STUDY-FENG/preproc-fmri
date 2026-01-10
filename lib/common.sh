@@ -5,16 +5,23 @@
 log() {
   local ts
   ts="$(date '+%Y-%m-%d %H:%M:%S')"
-  printf '[%s] %s\n' "$ts" "$*" >&2
+  printf '[%s] %s\n' "$ts" "$*" >>"${LOGFILE:-${TMPDIR:-/tmp}/preproc-fmri.log}" 2>&1
+}
+
+# Terminal output (queue progress/summary).
+say() {
+  printf '%s\n' "$*" >&2
 }
 
 die() {
   log "ERROR: $*"
+  say "ERROR: $*"
   exit 1
 }
 
 warn() {
   log "WARN: $*"
+  say "WARN: $*"
 }
 
 have_cmd() {

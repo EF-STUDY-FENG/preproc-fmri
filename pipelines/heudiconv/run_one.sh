@@ -46,7 +46,7 @@ fi
 trap 'release_lock "$JOB_ID"' EXIT
 
 # Pre-run status
-log "START $JOB_ID (force=$FORCE)" | tee -a "$LOGFILE"
+log "START $JOB_ID (force=$FORCE)"
 mark_running "$JOB_ID"
 
 set +e

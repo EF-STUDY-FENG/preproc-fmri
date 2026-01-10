@@ -34,12 +34,14 @@ fi
 RUN_ONE="$SCRIPT_DIR/run_one.sh"
 chmod +x "$RUN_ONE" >/dev/null 2>&1 || true
 
-log "Queue mode=$MODE force=$FORCE MAX_JOBS=$MAX_JOBS"
-log "Manifest: $MANIFEST"
+say "Queue mode=$MODE force=$FORCE MAX_JOBS=$MAX_JOBS"
+say "Manifest: $MANIFEST"
 
 # Build command file
 CMD_FILE="$PROJECT_ROOT/work/queue_heudiconv.txt"
+TODO_JOBS_FILE="$PROJECT_ROOT/work/todo_heudiconv_${MODE}.txt"
 : > "$CMD_FILE"
+: > "$TODO_JOBS_FILE"
 
 while IFS=$'\t' read -r sub ses; do
   [ -n "$sub" ] || continue
@@ -71,8 +73,10 @@ while IFS=$'\t' read -r sub ses; do
 
   # all: enqueue everything; run_one decides via FORCE
   printf 'bash %q %q %q %q\n' "$RUN_ONE" "$sub" "$ses" "$FORCE" >> "$CMD_FILE"
+  printf '%s\n' "$JOB_ID" >> "$TODO_JOBS_FILE"
 done < "$MANIFEST"
 
 # Run the queue
 run_queue "$CMD_FILE" "$MAX_JOBS" "$LOGDIR/joblog.tsv"
-log "OK: all jobs finished. Joblog -> $LOGDIR/joblog.tsv"
+
+summarize_failures_from_joblist "$LOGDIR/joblog.tsv" "$TODO_JOBS_FILE" || true

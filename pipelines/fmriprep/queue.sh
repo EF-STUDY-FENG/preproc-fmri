@@ -14,36 +14,29 @@ source "$LIB_ROOT/state.sh"
 # shellcheck disable=SC1090,SC1091
 source "$LIB_ROOT/queue.sh"
 
-FORCE="0"
-if [[ "${1:-}" =~ ^[01]$ ]]; then
-  FORCE="$1"; shift
-fi
+MODE="${1:-${QUEUE_MODE_DEFAULT:-pending}}"
+FORCE="${2:-0}"
+validate_queue_mode "$MODE"
 
-(( $# >= 1 )) || die "Usage: bash run_selected.sh [FORCE] <label> [<label> ...]"
-
-ensure_dir "$WORK_ROOT"
 ensure_dir "$LOGDIR"
+ensure_dir "$WORK_ROOT"
 init_state_dirs
 
-SEL_TSV="$WORK_ROOT/selected_${PIPELINE_NAME}.tsv"
-: >"$SEL_TSV"
-for label in "$@"; do
-  echo "$label" >>"$SEL_TSV"
-done
+[[ -s "$PARTICIPANTS_TSV" ]] || die "Participants file missing or empty: $PARTICIPANTS_TSV (run: bash $SCRIPT_DIR/manifest.sh)"
 
 RUN_ONE="$SCRIPT_DIR/run_one.sh"
 chmod +x "$RUN_ONE" 2>/dev/null || true
 
-CMD_FILE="$WORK_ROOT/queue_selected_${PIPELINE_NAME}.txt"
-JOBLIST_FILE="$WORK_ROOT/selected_${PIPELINE_NAME}_jobs.txt"
-JOBLOG_FILE="$LOGDIR/joblog_selected.tsv"
+CMD_FILE="$WORK_ROOT/queue_${PIPELINE_NAME}_${MODE}.txt"
+JOBLIST_FILE="$WORK_ROOT/todo_${PIPELINE_NAME}_${MODE}_jobs.txt"
+JOBLOG_FILE="$LOGDIR/joblog_${MODE}.tsv"
 
-queue_build_from_tsv "$SEL_TSV" all "$CMD_FILE" "$JOBLIST_FILE" \
+queue_build_from_tsv "$PARTICIPANTS_TSV" "$MODE" "$CMD_FILE" "$JOBLIST_FILE" \
   "$RUN_ONE" "$FORCE" 'sub-%s' 1
 
 N_TODO="$(count_nonempty_lines "$JOBLIST_FILE")"
-N_ALL="$(count_nonempty_lines "$SEL_TSV")"
-queue_say_header all "$FORCE" "$N_TODO" "$N_ALL" "$SEL_TSV"
+N_ALL="$(count_nonempty_lines "$PARTICIPANTS_TSV")"
+queue_say_header "$MODE" "$FORCE" "$N_TODO" "$N_ALL" "$PARTICIPANTS_TSV"
 
 [[ "$N_TODO" -eq 0 ]] && { log_info "Nothing to do."; exit 0; }
 

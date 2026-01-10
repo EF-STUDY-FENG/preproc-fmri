@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
-# Container execution wrapper for Singularity/Apptainer.
+# container.sh
+# Singularity/Apptainer wrapper.
+
+[[ "${__PFMRI_CONTAINER_SH:-}" == "1" ]] && return 0
+__PFMRI_CONTAINER_SH=1
 
 # shellcheck disable=SC1090,SC1091
-source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/common.sh"
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/core.sh"
 
-# Detect container runtime
 detect_container_runtime() {
   if have_cmd apptainer; then
-    printf '%s\n' apptainer
+    echo apptainer
   elif have_cmd singularity; then
-    printf '%s\n' singularity
+    echo singularity
   else
-    die "Neither 'singularity' nor 'apptainer' found in PATH"
+    die "Neither 'apptainer' nor 'singularity' found in PATH"
   fi
 }
 
-# Run container command
-# Usage: run_container <sif_path> <bind_mounts...> -- <container_args...>
+# Usage: run_container <image.sif> <bind1> [<bind2> ...] -- <container_args...>
 run_container() {
   local sif="${1:?SIF path required}"
   shift
@@ -26,20 +28,16 @@ run_container() {
   local runtime="${SING_BIN:-$(detect_container_runtime)}"
   local -a bind_args=()
 
-  # Collect bind mounts until we hit --
   while [[ $# -gt 0 ]] && [[ "$1" != "--" ]]; do
     bind_args+=(-B "$1")
     shift
   done
+  [[ "${1:-}" == "--" ]] && shift
 
-  # Skip the -- separator
-  [[ "$1" == "--" ]] && shift
-
-  # Run the container
   "$runtime" run "${bind_args[@]}" "$sif" "$@"
 }
 
-# Exec into container (for utilities like python)
+# Usage: exec_container <image.sif> <bind1> [<bind2> ...] -- <cmd...>
 exec_container() {
   local sif="${1:?SIF path required}"
   shift
@@ -53,8 +51,7 @@ exec_container() {
     bind_args+=(-B "$1")
     shift
   done
-
-  [[ "$1" == "--" ]] && shift
+  [[ "${1:-}" == "--" ]] && shift
 
   "$runtime" exec "${bind_args[@]}" "$sif" "$@"
 }

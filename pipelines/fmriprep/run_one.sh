@@ -35,6 +35,14 @@ SKIP_OPT=()
 CIFTI_OPT=()
 [[ -n "${CIFTI_OUTPUT:-}" ]] && CIFTI_OPT+=(--cifti-output "$CIFTI_OUTPUT")
 
+# fmriprep expects: --output-spaces SPACE [SPACE ...]
+# If OUTPUT_SPACES is provided as a whitespace-separated string, split it into an array.
+OUTPUT_SPACES_OPT=()
+if [[ -n "${OUTPUT_SPACES:-}" ]]; then
+  read -r -a OUTPUT_SPACES_ARR <<< "${OUTPUT_SPACES}"
+  OUTPUT_SPACES_OPT=(--output-spaces "${OUTPUT_SPACES_ARR[@]}")
+fi
+
 # Workdir policy (runs before container so we control workdir lifecycle explicitly)
 if [[ "${WIPE_WORKDIR_ON_START:-0}" == "1" ]]; then
   rm -rf "$WORK_SUB"
@@ -59,7 +67,7 @@ job_run "$SUB" "$FORCE" "$LOGFILE" -- \
       --nthreads "$NTHREADS" \
       --omp-nthreads "$OMP_NTHREADS" \
       --mem_mb "$MEM_MB" \
-      --output-spaces "$OUTPUT_SPACES" \
+      "${OUTPUT_SPACES_OPT[@]}" \
       "${CIFTI_OPT[@]}" \
       "${SKIP_OPT[@]}" \
       --stop-on-first-crash \

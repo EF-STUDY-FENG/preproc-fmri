@@ -10,15 +10,9 @@ __PFMRI_CORE_SH=1
 # -----------------------------------------------------------------------------
 _ts() { date '+%Y-%m-%d %H:%M:%S'; }
 
-_default_logfile() {
-  local base="${TMPDIR:-/tmp}/preproc-fmri"
-  mkdir -p -- "$base" 2>/dev/null || true
-  printf '%s\n' "$base/preproc-fmri.log"
-}
-
 # LOGFILE is the file path for log lines produced by these helpers.
 # Pipeline scripts typically set LOGFILE to the per-job log file.
-: "${LOGFILE:=$(_default_logfile)}"
+: "${LOGFILE:=/dev/null}"
 
 # Append to LOGFILE (best-effort).
 _log_line() {
@@ -35,6 +29,7 @@ log_error() { _log_line ERROR "$*"; }
 
 die() {
   log_error "$*"
+  printf '[%s] ERROR: %s\n' "$(_ts)" "$*" >&2
   exit 1
 }
 

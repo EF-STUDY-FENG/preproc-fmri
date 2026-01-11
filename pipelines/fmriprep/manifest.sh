@@ -24,5 +24,5 @@ done
 shopt -u nullglob
 
 sort -u -o "$PARTICIPANTS_TSV" "$PARTICIPANTS_TSV"
-
-log_info "OK: participants -> $PARTICIPANTS_TSV (N=$(wc -l <"$PARTICIPANTS_TSV" | tr -d ' '))"
+printf 'OK: participants -> %s (N=%s)\n' \
+  "$PARTICIPANTS_TSV" "$(wc -l <"$PARTICIPANTS_TSV" | tr -d ' ')" >&2

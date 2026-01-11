@@ -95,7 +95,7 @@ job_run() {
   ensure_dir "$(dirname -- "$logfile")"
 
   # Make job-specific logs easy to find.
-  LOGFILE="$logfile"
+  export LOGFILE="$logfile"
 
   if is_done "$job_id" && [[ "$force" != "1" ]]; then
     log_info "SKIP(DONE) $job_id"
@@ -158,13 +158,13 @@ summarize_failures_from_joblist() {
   done <"$joblist_file"
 
   if (( ${#failed_jobs[@]} > 0 )); then
-    log_warn "FAILED: ${#failed_jobs[@]} job(s). Joblog -> $joblog_path"
+    printf 'FAILED: %s job(s). Joblog -> %s\n' "${#failed_jobs[@]}" "$joblog_path" >&2
     for job_id in "${failed_jobs[@]}"; do
-      log_warn "  $job_id -> ${LOGDIR}/${job_id}.log"
+      printf '  %s -> %s/%s.log\n' "$job_id" "$LOGDIR" "$job_id" >&2
     done
     return 1
   fi
 
-  log_info "OK: all jobs finished. Joblog -> $joblog_path"
+  printf 'OK: all jobs finished. Joblog -> %s\n' "$joblog_path" >&2
   return 0
 }

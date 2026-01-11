@@ -141,7 +141,7 @@ run_queue() {
   if have_cmd parallel; then
     _run_with_parallel "$cmd_file" "$jobs" "$joblog"
   else
-    log_warn "GNU parallel not found; using bash background pool (limited job control)"
+    printf 'WARN: GNU parallel not found; using bash background pool (limited job control)\n' >&2
     _run_with_bg_pool "$cmd_file" "$jobs" "$joblog"
   fi
 }
@@ -153,15 +153,15 @@ queue_say_header() {
   local n_total="${4:-0}"
   local list_path="${5:-}"
 
-  log_info "Input total: $n_total"
-  [[ -n "$list_path" ]] && log_info "Input list: $list_path"
-  log_info "Queue mode: $mode (force=$force)"
-  log_info "To run: $n_todo"
+  printf 'Input total: %s\n' "$n_total" >&2
+  [[ -n "$list_path" ]] && printf 'Input list: %s\n' "$list_path" >&2
+  printf 'Queue mode: %s (force=%s)\n' "$mode" "$force" >&2
+  printf 'To run: %s\n' "$n_todo" >&2
 
   local -a parts=()
   [[ -n "${MAX_JOBS:-}" ]] && parts+=("MAX_JOBS=$MAX_JOBS")
   [[ -n "${NTHREADS:-}" ]] && parts+=("NTHREADS=$NTHREADS")
   [[ -n "${OMP_NTHREADS:-}" ]] && parts+=("OMP_NTHREADS=$OMP_NTHREADS")
   [[ -n "${MEM_MB:-}" ]] && parts+=("MEM_MB=$MEM_MB")
-  (( ${#parts[@]} > 0 )) && log_info "Resources: ${parts[*]}"
+  (( ${#parts[@]} > 0 )) && printf 'Resources: %s\n' "${parts[*]}" >&2
 }

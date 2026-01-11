@@ -33,4 +33,4 @@ exec_container "$FMRIPREP_SIF" \
     --reset 1 \
     <"$TOOLS_BIDS_DB"
 
-log_info "OK: BIDS DB ready -> $BIDS_DB_DIR"
+printf 'OK: BIDS DB ready -> %s\n' "$BIDS_DB_DIR" >&2

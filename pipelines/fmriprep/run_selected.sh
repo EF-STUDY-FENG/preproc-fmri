@@ -45,7 +45,7 @@ N_TODO="$(count_nonempty_lines "$JOBLIST_FILE")"
 N_ALL="$(count_nonempty_lines "$SEL_TSV")"
 queue_say_header all "$FORCE" "$N_TODO" "$N_ALL" "$SEL_TSV"
 
-[[ "$N_TODO" -eq 0 ]] && { log_info "Nothing to do."; exit 0; }
+[[ "$N_TODO" -eq 0 ]] && { printf 'Nothing to do.\n' >&2; exit 0; }
 
 run_queue "$CMD_FILE" "${MAX_JOBS:-1}" "$JOBLOG_FILE" || true
 summarize_failures_from_joblist "$JOBLOG_FILE" "$JOBLIST_FILE" || true

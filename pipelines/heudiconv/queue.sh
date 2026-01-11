@@ -41,7 +41,7 @@ N_ALL="$(count_nonempty_lines "$MANIFEST")"
 queue_say_header "$MODE" "$FORCE" "$N_TODO" "$N_ALL" "$MANIFEST"
 
 if [[ "$N_TODO" -eq 0 ]]; then
-  log_info "Nothing to do."
+  printf 'Nothing to do.\n' >&2
   exit 0
 fi
 

@@ -46,4 +46,4 @@ if [[ "$N_TODO" -eq 0 ]]; then
 fi
 
 run_queue "$CMD_FILE" "${MAX_JOBS:-1}" "$JOBLOG_FILE" || true
-summarize_failures_from_joblist "$JOBLOG_FILE" "$JOBLIST_FILE" || true
+summarize_failures "$JOBLOG_FILE" "$JOBLIST_FILE" || true

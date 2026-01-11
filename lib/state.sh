@@ -143,8 +143,8 @@ job_run() {
   return "$rc"
 }
 
-summarize_failures_from_joblist() {
-  # Usage: summarize_failures_from_joblist <joblog_path> <joblist_file>
+summarize_failures() {
+  # Usage: summarize_failures <joblog_path> <joblist_file>
   local joblog_path="${1:?joblog_path required}"
   local joblist_file="${2:?joblist_file required}"
 
@@ -167,4 +167,8 @@ summarize_failures_from_joblist() {
 
   printf 'OK: all jobs finished. Joblog -> %s\n' "$joblog_path" >&2
   return 0
+}
+
+summarize_failures_from_joblist() {
+  summarize_failures "$@"
 }

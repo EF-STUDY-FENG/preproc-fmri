@@ -5,6 +5,7 @@ The repository currently provides the following pipelines:
 
 - **heudiconv**: DICOM → BIDS conversion (via container)
 - **fMRIPrep**: BIDS → preprocessed derivatives (via container)
+- **mriqc**: BIDS → MRIQC quality metrics + HTML reports (via container)
 
 ## Key design
 
@@ -39,7 +40,7 @@ The repository currently provides the following pipelines:
 ├─ pipelines/              # entry scripts for each pipeline
 ├─ tools/                  # small helper tools (e.g., manifest generation)
 ├─ bids/                   # BIDS output (from heudiconv)
-├─ derivatives/            # derivatives outputs (fMRIPrep/xcp_d)
+├─ derivatives/            # derivatives outputs (fMRIPrep/MRIQC)
 ├─ stage/                  # staging (heudiconv manifest, DICOM symlink tree)
 ├─ work/                   # temporary work dirs, participants lists, db, etc.
 └─ logs/                   # pipeline logs + state markers
@@ -68,7 +69,7 @@ You need `.sif` images for:
 
 - heudiconv (e.g., `heudiconv-1.3.4.sif`)
 - fMRIPrep (e.g., `fmriprep-25.2.3.sif`)
-- xcp_d (optional)
+- MRIQC (e.g., `mriqc-24.0.2.sif`)
 
 Store them under `CONTAINERS_ROOT` (default: `${HOME}/containers`) or override in config.
 
@@ -107,6 +108,7 @@ All configuration is done through env files:
 - `config/project.env` (project-wide defaults)
 - `config/heudiconv.env`
 - `config/fmriprep.env`
+- `config/mriqc.env`
 
 You can edit these files directly, or override variables inline:
 
@@ -186,7 +188,7 @@ bash pipelines/heudiconv/run_selected.sh 0 001 REST 001 TASK 002 REST
 bash pipelines/fmriprep/bids_db.sh
 ```
 
-#### Step A: Build participants list
+#### Step A: Build fMRIPrep participants list
 
 ```bash
 bash pipelines/fmriprep/manifest.sh
@@ -205,6 +207,29 @@ bash pipelines/fmriprep/queue.sh pending 0
 bash pipelines/fmriprep/run_one.sh 0 <SUBJECT>
 # Example:
 bash pipelines/fmriprep/run_one.sh 0 001
+```
+
+---
+
+### 3. MRIQC
+
+#### Step A: Build MRIQC participants list
+
+```bash
+bash pipelines/mriqc/manifest.sh
+# outputs: work/mriqc/participants.tsv (one label per line)
+```
+
+#### Step B: Run MRIQC (participant level)
+
+```bash
+bash pipelines/mriqc/queue.sh pending 0
+```
+
+#### Optional: Run group-level report
+
+```bash
+bash pipelines/mriqc/run_group.sh
 ```
 
 ---
@@ -260,7 +285,7 @@ This design allows reproducible re-execution:
 
 ### Container not found / runtime mismatch
 
-- Check `CONTAINERS_ROOT` and `SIF`/`FMRIPREP_SIF`/`XCPD_SIF`.
+- Check `CONTAINERS_ROOT` and `SIF`/`FMRIPREP_SIF`/`MRIQC_SIF`.
 - Check runtime:
   - auto-detection prefers Apptainer if available;
   - you may override by setting `SING_BIN=apptainer` or `SING_BIN=singularity`.
@@ -302,7 +327,7 @@ This project builds upon the community tooling ecosystem:
 
 - HeuDiConv
 - fMRIPrep
-- xcp_d
+- MRIQC
 - BIDS / PyBIDS
 - Singularity/Apptainer
 - GNU parallel *(optional)*

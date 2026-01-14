@@ -317,7 +317,7 @@ This design allows reproducible re-execution:
 
 ## License
 
-Specify your license here (e.g., MIT, Apache-2.0, or internal).
+MIT License. See [LICENSE](LICENSE).
 
 ---
 
